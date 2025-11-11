@@ -1,11 +1,15 @@
 import sqlite3
+from pathlib import Path
+
+Base_dir = Path(__file__).resolve().parent
+DB_FILE = Base_dir / "Movies.db"
 
 DB_FILE = "Movies.db"
 
 # Denne klasse håndterer al kommunikation med databasen 'Movies.db'.
 # Den sørger for at oprette forbindelse, køre forespørgsler og hente eller indsætte data.
 class Database:
-    
+   
     # Denne metode opretter og returnerer en forbindelse til databasen.
     # row_factory sættes til sqlite3.Row, så data kan tilgås som ordbøger,
     # hvilket gør det lettere at arbejde med resultaterne i Python.
@@ -60,3 +64,34 @@ class Database:
     def insert(self, title, genre, director, year):
         query = "INSERT INTO movies (title, genre, director, year) VALUES (?, ?, ?, ?)"
         self._execute(query, (title, genre, director, year))
+    
+    # Opdaterer en eksisterende film baseret på ID.
+    # Felter kan opdateres individuelt efter behov.
+    def update(self, movie_id, title=None, genre=None, director=None, year=None):
+        fields = []
+        params = []
+
+        if title is not None:
+            fields.append("title = ?")
+            params.append(title)
+        if genre is not None:
+            fields.append("genre = ?")
+            params.append(genre)
+        if director is not None:
+            fields.append("director = ?")
+            params.append(director)
+        if year is not None:
+            fields.append("year = ?")
+            params.append(year)
+
+        if not fields:
+            return  # Intet at opdatere
+
+        query = f"UPDATE movies SET {', '.join(fields)} WHERE id = ?"
+        params.append(movie_id)
+        self._execute(query, params)
+
+    # Sletter en film ud fra dens ID.
+    def delete(self, movie_id):
+        query = "DELETE FROM movies WHERE id = ?"
+        self._execute(query, (movie_id,))
