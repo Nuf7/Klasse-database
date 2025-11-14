@@ -1,26 +1,16 @@
 import sqlite3
-from pathlib import Path
-
-Base_dir = Path(__file__).resolve().parent
-DB_FILE = Base_dir / "Movies.db"
+from film import Film
 
 DB_FILE = "Movies.db"
 
-# Denne klasse håndterer al kommunikation med databasen 'Movies.db'.
-# Den sørger for at oprette forbindelse, køre forespørgsler og hente eller indsætte data.
+
 class Database:
-   
-    # Denne metode opretter og returnerer en forbindelse til databasen.
-    # row_factory sættes til sqlite3.Row, så data kan tilgås som ordbøger,
-    # hvilket gør det lettere at arbejde med resultaterne i Python.
+
     def _connect(self):
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
         return conn
 
-    # Denne metode bruges til at udføre ændrende forespørgsler som
-    # INSERT, UPDATE eller DELETE. Efter udførsel gemmes ændringerne
-    # med commit(), og forbindelsen lukkes igen.
     def _execute(self, query, params=()):
         conn = self._connect()
         try:
@@ -29,8 +19,6 @@ class Database:
         finally:
             conn.close()
 
-    # Denne metode bruges til at køre SELECT-forespørgsler og hente data fra databasen.
-    # Resultaterne omdannes til en liste af ordbøger, så de er nemme at arbejde med.
     def _run_query(self, query, params=()):
         conn = self._connect()
         try:
@@ -38,60 +26,45 @@ class Database:
             rows = cur.fetchall()
         finally:
             conn.close()
-        return [dict(row) for row in rows]
+        return rows
 
+    # ---------------------------
+    # CRUD – OOP version
+    # ---------------------------
 
-
-    # Finder film, hvor titlen indeholder det søgte ord.
-    # Søgetermen indsættes i et LIKE-udtryk for at finde delvise match.
     def search(self, term):
         query = "SELECT * FROM movies WHERE title LIKE ?"
-        return self._run_query(query, (f"%{term}%",))
+        rows = self._run_query(query, (f"%{term}%",))
+        return [Film(r["id"], r["title"], r["genre"], r["director"], r["year"]) for r in rows]
 
-    # Henter en enkelt film ud fra dens ID.
-    # Hvis filmen ikke findes, returneres None.
     def load(self, movie_id):
         query = "SELECT * FROM movies WHERE id = ?"
-        result = self._run_query(query, (movie_id,))
-        return result[0] if result else None
+        rows = self._run_query(query, (movie_id,))
+        if not rows:
+            return None
+        r = rows[0]
+        return Film(r["id"], r["title"], r["genre"], r["director"], r["year"])
 
-    # Henter alle film fra databasen og returnerer dem som en liste.
     def load_all(self):
         query = "SELECT * FROM movies"
-        return self._run_query(query)
+        rows = self._run_query(query)
+        return [Film(r["id"], r["title"], r["genre"], r["director"], r["year"]) for r in rows]
 
-    # Indsætter en ny film i databasen med titel, genre, instruktør og årstal.
-    def insert(self, title, genre, director, year):
-        query = "INSERT INTO movies (title, genre, director, year) VALUES (?, ?, ?, ?)"
-        self._execute(query, (title, genre, director, year))
-    
-    # Opdaterer en eksisterende film baseret på ID.
-    # Felter kan opdateres individuelt efter behov.
-    def update(self, movie_id, title=None, genre=None, director=None, year=None):
-        fields = []
-        params = []
+    def insert(self, film: Film):
+        query = """
+            INSERT INTO movies (title, genre, director, year)
+            VALUES (?, ?, ?, ?)
+        """
+        self._execute(query, (film.title, film.genre, film.director, film.year))
 
-        if title is not None:
-            fields.append("title = ?")
-            params.append(title)
-        if genre is not None:
-            fields.append("genre = ?")
-            params.append(genre)
-        if director is not None:
-            fields.append("director = ?")
-            params.append(director)
-        if year is not None:
-            fields.append("year = ?")
-            params.append(year)
+    def update(self, movie_id, film: Film):
+        query = """
+            UPDATE movies
+            SET title = ?, genre = ?, director = ?, year = ?
+            WHERE id = ?
+        """
+        self._execute(query, (film.title, film.genre, film.director, film.year, movie_id))
 
-        if not fields:
-            return  # Intet at opdatere
-
-        query = f"UPDATE movies SET {', '.join(fields)} WHERE id = ?"
-        params.append(movie_id)
-        self._execute(query, params)
-
-    # Sletter en film ud fra dens ID.
     def delete(self, movie_id):
         query = "DELETE FROM movies WHERE id = ?"
         self._execute(query, (movie_id,))
