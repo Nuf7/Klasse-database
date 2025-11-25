@@ -28,9 +28,9 @@ class Database:
             conn.close()
         return rows
 
-    # ---------------------------
+    
     # CRUD – OOP version
-    # ---------------------------
+   
 
     def search(self, term):
         query = "SELECT * FROM movies WHERE title LIKE ?"
